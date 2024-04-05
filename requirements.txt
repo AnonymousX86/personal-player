@@ -1,3 +1,4 @@
 pynacl
 py-cord
-youtube-dl @ git+https://github.com/ytdl-org/youtube-dl@master
+# youtube-dl @ git+https://github.com/ytdl-org/youtube-dl@master
+yt-dlp

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from discord import ApplicationContext, Bot, CustomActivity, FFmpegOpusAudio, Guild, VoiceChannel
 from discord.ext.commands import check, CheckFailure, is_owner
-from youtube_dl import YoutubeDL
+from yt_dlp import YoutubeDL
 
 
 BOT_TOKEN = getenv('BOT_TOKEN')
@@ -62,12 +62,13 @@ class Playlist:
         """Downloads by query and saves it to returned `Path`"""
         print(f'Requested download: {query}')
 
-        with YoutubeDL(dict(
-            format='bestaudio/best',
-            outtmpl=str(DOWNLOAD_DIR.joinpath('%(id)s.%(ext)s')),
-            default_search='ytsearch',
-            no_playlist=True
-        )) as ytdl:
+        with YoutubeDL({
+            'format': 'bestaudio/best',
+            'outtmpl': str(DOWNLOAD_DIR.joinpath('%(id)s.%(ext)s')),
+            'default_search': 'ytsearch',
+            'no_playlist': True,
+            'logger': getLogger('rich')
+        }) as ytdl:
             data = ytdl.extract_info(query)
             songs = []
             if data.get('_type') == 'playlist':

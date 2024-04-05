@@ -1,11 +1,15 @@
 # -*- coding: utf-8 -*-
 from enum import Enum
+from logging import basicConfig, getLogger, INFO, Logger
 from os import getenv
 from pathlib import Path
+from re import compile
 
 from discord import ApplicationContext, Bot, CustomActivity, FFmpegOpusAudio, Guild, VoiceChannel
 from discord.ext.commands import check, CheckFailure, is_owner
+from rich.logging import RichHandler
 from yt_dlp import YoutubeDL
+from yt_dlp.utils import ExtractorError, DownloadError
 
 
 BOT_TOKEN = getenv('BOT_TOKEN')
@@ -168,6 +172,11 @@ class AudioController:
             vc.pause()
         self.playlist.clear()
 
+def remove_ansi(text: str) -> str:
+    """Removes ANSI ascape codes and returns clean one"""
+    escape = compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    return escape.sub('', text)
+
 
 def is_connected() -> check:
     async def predicate(ctx: ApplicationContext) -> bool:
@@ -187,7 +196,7 @@ def is_playing() -> check:
     return check(predicate)
 
 
-def main():
+def main(log: Logger):
     bot = Bot(
         owner_id=309270832683679745,
         activity=CustomActivity(
@@ -206,7 +215,7 @@ def main():
 
     @bot.event
     async def on_ready() -> None:
-        print(f'{bot.user} is ready and online!')
+        log.info(f'{bot.user} is ready and online!')
 
     @bot.slash_command(name = 'ping', description = 'Test the bot')
     async def ping(ctx: ApplicationContext) -> None:
@@ -215,6 +224,7 @@ def main():
     @bot.slash_command(name='sync', description='Forces commands synchronization')
     @is_owner()
     async def sync(ctx: ApplicationContext) -> None:
+        log.info(f'Syncing commands in {ctx.guild.name} ({ctx.guild_id})')
         await bot.sync_commands(guild_ids=[ctx.guild_id])
         await ctx.respond('Done.')
 
@@ -251,6 +261,12 @@ def main():
             if url := new_songs[0].url:
                 msg += f'\n*<{url}>*'
         await res.edit(content=msg)
+
+    @play.error
+    async def play_error(ctx: ApplicationContext, error: Exception):
+        while ((parent := error.__cause__) is not None):
+            error = parent
+        await ctx.edit(content=f'During adding the song, an error heppened:```\n{remove_ansi(str(error))}\n```')
 
     @bot.slash_command(name='queue', description='Preview next songs')
     @is_playing()
@@ -300,4 +316,11 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    basicConfig(
+        level=INFO,
+        format='%(message)s',
+        datefmt='[%x]',
+        handlers=[RichHandler(rich_tracebacks=True)]
+    )
+    log = getLogger('rich')
+    main(log)

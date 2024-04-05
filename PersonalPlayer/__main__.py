@@ -4,11 +4,20 @@ from os import getenv
 from pathlib import Path
 
 from discord import ApplicationContext, Bot, CustomActivity, FFmpegOpusAudio, Guild, VoiceChannel
+from discord.ext.commands import check, CheckFailure, is_owner
 from youtube_dl import YoutubeDL
 
 
 BOT_TOKEN = getenv('BOT_TOKEN')
 DOWNLOAD_DIR = Path('download').resolve()
+
+
+class NotConnected(CheckFailure):
+    pass
+
+
+class NotPlaying(CheckFailure):
+    pass
 
 
 class QueueState(Enum):
@@ -132,9 +141,7 @@ class AudioController:
     async def add_song(self, query: str) -> tuple[QueueState, list[Song]]:
         """Adds song to queue, starts playing if it's the first"""
         new_songs = self.playlist.add(query)
-        if not (client := self.guild.voice_client):
-            raise Exception('Bot is somehow not connected')
-        if not client.is_playing():
+        if not self.guild.voice_client.is_playing():
             self.play_next()
             status = QueueState.NOW_PLAYING
         else:
@@ -142,27 +149,41 @@ class AudioController:
         return status, new_songs
 
     def skip(self) -> None:
-        """Skips current song if applicable"""
-        if vc := self.guild.voice_client:
-            if vc.is_playing():
-                self.guild.voice_client.stop()
-                self.play_next()
+        """Skips current song"""
+        self.guild.voice_client.stop()
+        self.play_next()
 
     def pause(self) -> bool:
-        """Switches playing state, returns `True` if pasued and `False` if resumed or not playing at all"""
-        if vc := self.guild.voice_client:
-            if vc.is_playing():
-                vc.pause()
-                return True
-            vc.resume()
+        """Switches playing state, returns `True` if pasued and `False` if resumed"""
+        if (vc := self.guild.voice_client).is_playing():
+            vc.pause()
+            return True
+        vc.resume()
         return False
 
     def stop(self) -> None:
         """Stops playing and cleares queue"""
-        if vc := self.guild.voice_client:
-            if vc.is_playing():
-                vc.pause()
-            self.playlist.clear()
+        if (vc := self.guild.voice_client).is_playing():
+            vc.pause()
+        self.playlist.clear()
+
+
+def is_connected() -> check:
+    async def predicate(ctx: ApplicationContext) -> bool:
+        if ctx.guild.voice_client is None:
+            raise NotConnected('I\'m not connected anywhere')
+        return True
+    return check(predicate)
+
+
+def is_playing() -> check:
+    async def predicate(ctx: ApplicationContext) -> bool:
+        if not (vc := ctx.guild.voice_client):
+            raise NotConnected('I\'m not connected anywhere')
+        if not vc.is_playing():
+            raise NotPlaying('I\'m not playing anything')
+        return True
+    return check(predicate)
 
 
 def main():
@@ -182,9 +203,6 @@ def main():
             return new_audio
         return audio
 
-    async def is_owner(ctx: ApplicationContext) -> bool:
-        return ctx.author.id == bot.owner_id
-
     @bot.event
     async def on_ready() -> None:
         print(f'{bot.user} is ready and online!')
@@ -193,7 +211,8 @@ def main():
     async def ping(ctx: ApplicationContext) -> None:
         await ctx.respond(f'Pong! Latency: **{int(bot.latency * 1000)}ms**.')
 
-    @bot.slash_command(name='sync', description='Forces commands synchronization', checks=[is_owner])
+    @bot.slash_command(name='sync', description='Forces commands synchronization')
+    @is_owner()
     async def sync(ctx: ApplicationContext) -> None:
         await bot.sync_commands(guild_ids=[ctx.guild_id])
         await ctx.respond('Done.')
@@ -233,6 +252,7 @@ def main():
         await res.edit(content=msg)
 
     @bot.slash_command(name='queue', description='Preview next songs')
+    @is_playing()
     async def queue(ctx: ApplicationContext) -> None:
         audio = await get_audio(ctx.guild_id)
         if not len(titles := audio.playlist.titles):
@@ -244,6 +264,7 @@ def main():
         await ctx.respond(res)
 
     @bot.slash_command(name='skip', description='Skips current song')
+    @is_playing()
     async def skip(ctx: ApplicationContext) -> None:
         audio = await get_audio(ctx.guild_id)
         now_playing = audio.now_playing
@@ -251,16 +272,28 @@ def main():
         await ctx.respond(f'Skipping **{now_playing}**.' if now_playing else 'I\'m not playing anything.')
 
     @bot.slash_command(name='pause', description='Switches pause and unpasue')
+    @is_playing()
     async def pause(ctx: ApplicationContext) -> None:
         audio = await get_audio(ctx.guild_id)
         is_paused = audio.pause()
         await ctx.respond('Paused.' if is_paused else 'Resumed.')
 
     @bot.slash_command(name='stop', description='Stops playing and clears queue')
+    @is_playing()
     async def stop(ctx: ApplicationContext) -> None:
         audio = await get_audio(ctx.guild_id)
         audio.stop()
         await ctx.respond('Stopped playing and cleared queue.')
+
+    @queue.error
+    @skip.error
+    @pause.error
+    @stop.error
+    async def playing_common_error(ctx: ApplicationContext, error: Exception):
+        if isinstance(error, NotConnected):
+            await ctx.respond(error)
+        elif isinstance(error, NotPlaying):
+            await ctx.respond(error)
 
     bot.run(BOT_TOKEN)
 

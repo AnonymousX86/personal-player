@@ -9,7 +9,6 @@ from discord import ApplicationContext, Bot, CustomActivity, FFmpegOpusAudio, Gu
 from discord.ext.commands import check, CheckFailure, is_owner
 from rich.logging import RichHandler
 from yt_dlp import YoutubeDL
-from yt_dlp.utils import ExtractorError, DownloadError
 
 
 BOT_TOKEN = getenv('BOT_TOKEN')

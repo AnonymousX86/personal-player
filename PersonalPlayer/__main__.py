@@ -87,7 +87,7 @@ def main(log: Logger):
         # Get audio controller for specific guild
         audio = await get_audio(ctx.guild_id)
 
-        state, new_songs = audio.add_song(query)
+        state, new_songs = audio.add_songs(query)
 
         if not (l := len(new_songs)):
             msg = 'No tracks added...?'

@@ -25,7 +25,7 @@ class NotPlaying(CheckFailure):
 
 class QueueState(Enum):
     NOW_PLAYING = 'Now playing'
-    ADDED = 'Added to queue'
+    QUEUED = 'Queued'
 
 
 class Song:
@@ -149,7 +149,7 @@ class AudioController:
             self.play_next()
             status = QueueState.NOW_PLAYING
         else:
-            status = QueueState.ADDED
+            status = QueueState.QUEUED
         return status, new_songs
 
     def skip(self) -> None:

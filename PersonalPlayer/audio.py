@@ -126,9 +126,11 @@ class AudioController:
             if not (current := self.playlist.current):
                 raise RuntimeError('Queue is empty')
             song = current
+        # Queue ended
         elif (next := self.playlist.next) is None:
             self._now_playing = None
             return
+        # Go to next song
         else:
             song = next
         self.bot.loop.create_task(self.play_song(song))

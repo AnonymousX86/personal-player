@@ -121,8 +121,8 @@ class AudioController:
         """Runs after a song is over and play next if there is"""
         if error:
             raise error
-        # Queue has not been started
-        if not self._now_playing:
+        # Queue has not been started or skipped
+        if self._now_playing is None:
             if not (current := self.playlist.current):
                 raise RuntimeError('Queue is empty')
             song = current

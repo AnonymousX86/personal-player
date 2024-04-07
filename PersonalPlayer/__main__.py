@@ -142,7 +142,7 @@ class AudioController:
         self._now_playing = song
         self.guild.voice_client.play(FFmpegOpusAudio(str(song.path)), after=self.play_next)
 
-    async def add_song(self, query: str) -> tuple[QueueState, list[Song]]:
+    def add_song(self, query: str) -> tuple[QueueState, list[Song]]:
         """Adds song to queue, starts playing if it's the first"""
         new_songs = self.playlist.add(query)
         if not self.guild.voice_client.is_playing():
@@ -252,7 +252,6 @@ def main(log: Logger):
 
         # Get audio controller for specific guild
         audio = await get_audio(ctx.guild_id)
-        state, new_songs = await audio.add_song(query)
 
         if (l := len(new_songs)) > 1:
             msg = f'Added **{l}** tracks.'
@@ -260,6 +259,7 @@ def main(log: Logger):
             msg = f'{state.value}: **{new_songs[0]}**'
             if url := new_songs[0].url:
                 msg += f'\n*<{url}>*'
+        state, new_songs = audio.add_song(query)
         await res.edit(content=msg)
 
     @play.error

@@ -78,13 +78,10 @@ class Playlist:
         """Downloads by query and saves it"""
         with YoutubeDL(self._ytdl_opts) as ytdl:
             data = ytdl.extract_info(query)
-            songs = []
-            if data.get('_type') == 'playlist':
-                for entry in data.get('entries'):
-                    songs.append(Song(entry))
-            else:
-                songs.append(Song(data))
-            return songs
+            if (e := data.get('entries')) is None:
+                return [Song(data)]
+            # TODO - handle playlists
+            return [Song(e[0])]
 
     def add(self, query: str) -> list[Song]:
         """Downloads a song or playlist, adds it to queue, and returns it's object"""
@@ -258,13 +255,13 @@ def main(log: Logger):
         # Get audio controller for specific guild
         audio = await get_audio(ctx.guild_id)
 
-        if (l := len(new_songs)) > 1:
-            msg = f'Added **{l}** tracks.'
-        else:
-            msg = f'{state.value}: **{new_songs[0]}**'
-            if url := new_songs[0].url:
-                msg += f'\n*<{url}>*'
         state, new_songs = audio.add_song(query)
+
+        if not (l := len(new_songs)):
+            msg = 'No tracks added...?'
+        msg = f'Added **{l}** track{'s' if l > 1 else ''}. {state.value}: **{new_songs[0]}**'
+        if url := new_songs[0].url:
+            msg += f' *<{url}>*'
         await res.edit(content=msg)
 
     @play.error

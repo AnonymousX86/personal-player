@@ -171,6 +171,7 @@ class AudioController:
             vc.pause()
         self.playlist.clear()
 
+
 def remove_ansi(text: str) -> str:
     """Removes ANSI ascape codes and returns clean one"""
     escape = compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')

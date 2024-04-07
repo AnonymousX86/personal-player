@@ -60,18 +60,23 @@ class Song:
 class Playlist:
     def __init__(self) -> None:
         self._queue: list[Song] = [None]
-
-    def _download(self, query: str) -> list[Song]:
-        """Downloads by query and saves it to returned `Path`"""
-        print(f'Requested download: {query}')
-
-        with YoutubeDL({
+        self._ytdl_opts = {
             'format': 'bestaudio/best',
             'outtmpl': str(DOWNLOAD_DIR.joinpath('%(id)s.%(ext)s')),
+            'noplaylist': True,
             'default_search': 'ytsearch',
-            'no_playlist': True,
-            'logger': getLogger('rich')
-        }) as ytdl:
+            'logger': getLogger('rich'),
+            'noprogress': True,
+            'extractor_args': {
+                'youtube': {
+                    'player_client': ['ios', 'web']
+                }
+            }
+        }
+
+    def _download(self, query: str) -> list[Song]:
+        """Downloads by query and saves it"""
+        with YoutubeDL(self._ytdl_opts) as ytdl:
             data = ytdl.extract_info(query)
             songs = []
             if data.get('_type') == 'playlist':
